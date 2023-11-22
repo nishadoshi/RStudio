@@ -1,1 +1,256 @@
+This was a group project conducted in my Principles of data science course. 
 
+The data set used was from Kaggle. 
+https://www.kaggle.com/datasets/uom190346a/sleep-health-and-lifestyle-dataset 
+
+
+title: "STAT 1261 Project Part 1"
+author: "Chintha Kathiresan, Meriem Boukaabar, Diya Kad, Nisha Doshi"
+date: "2023-10-20"
+output:
+  word_document: default
+---
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+
+#download sleep health and lifestyle dataset with https://www.kaggle.com/datasets/uom190346a/sleep-health-and-lifestyle-dataset  
+
+sleep_and_lifestyle <- read.csv('Sleep_health_and_lifestyle_dataset.csv') #read file 
+names(sleep_and_lifestyle) #variables in dataset
+```
+### Distribution of Each Numeric Variable
+
+**Sleep Duration**
+```{r}
+ggplot(data = sleep_and_lifestyle, aes(x = Sleep.Duration, y=after_stat(density))) + geom_histogram(fill="blue", col="white", alpha=0.4, bins=15) + geom_density(col="black", linewidth=1) + labs(title = "Density Histogram of Sleep Duration", x = "Sleep Duration (hours/day)", y = "Density")
+
+ggplot(data=sleep_and_lifestyle,mapping=aes(x=Sleep.Duration)) + 
+  geom_boxplot()
+quantile(sleep_and_lifestyle$Sleep.Duration)
+```
+
+Distribution of Sleep Duration is multi-modal, not symmetric, and not normally distributed. There are extremes for people who sleep 8 to 8.5 hours/day. The average sleep duration for individuals in this sample is 7.2 hours. 25% of individuals in the sample had an average sleep duration below 6.4 hours and 75% of individuals in the sample had an average sleep duration below 8.5 hours.
+
+**Stress Levels**
+```{r}
+ggplot(sleep_and_lifestyle, aes(x = Stress.Level, y = after_stat(density))) +
+  geom_histogram(binwidth = 1, fill = "lightblue", color = "black", alpha = 0.5) +
+  labs(title = "Density Histogram of Stress Levels", x = "Stress Level (scale of 1-10)", y = "Density")
+
+summary(sleep_and_lifestyle$Stress.Level)
+```
+
+Data ranges from a minimum of 3 to a maximum of 8, with a median of 5, a mean of approximately 5.385, and quartiles at 4 and 7. This distribution suggests that stress levels are relatively evenly spread across the scale.
+
+**Daily Steps**
+```{r}
+ggplot(sleep_and_lifestyle, aes(x = Daily.Steps, y = after_stat(density))) +
+  geom_histogram(binwidth = 500, fill = "lightblue", color = "black", alpha = 0.5) +
+  geom_density() +
+  labs(title = "Density Histogram of Daily Steps", x = "Daily Steps (steps/day)", y = "Density")
+```
+
+Daily Steps has a more normal distribution, with values ranging from 3000 to 10000. The data’s median is 7000, the mean is approximately 6817, and the quartiles fall between 5600 and 8000.
+
+**Quality of Sleep**
+```{r}
+ggplot(data = sleep_and_lifestyle, aes(x = Quality.of.Sleep, y=after_stat(density))) + geom_histogram(fill="steelblue", alpha=0.4, bins=5, color = "black") + geom_density(col="black", linewidth=1) + labs(title = "Histogram of Quality of Sleep", x = "Quality of Sleep (scale of 1-10)")
+
+ggplot(data=sleep_and_lifestyle,mapping=aes(x=Quality.of.Sleep)) + geom_boxplot()
+quantile(sleep_and_lifestyle$Quality.of.Sleep)
+```
+
+The distribution of quality of sleep is unsymmetrical and left skewed. There do not appear to be any outliers. The median lies at 7 while the minimum and maximum values are 4 and 9, respectively. The summary shows that the lower 25% had a score of 6 or lower while the upper 25% had a score of 8 or higher.
+
+**Age**
+```{r}
+ggplot(data=sleep_and_lifestyle,mapping=aes(x=Age)) + 
+  geom_boxplot()
+
+summary(sleep_and_lifestyle$Age)
+```
+
+The majority of people in this dataset are between 35-50. Overall, it is a pretty symmetrical distribution, there are no serious outliers that skew the distribution. The mean is roughly age 42.
+
+**Physical Activity Level**
+```{r}
+ggplot(data = sleep_and_lifestyle, aes(x = Physical.Activity.Level)) + geom_boxplot()
+summary(sleep_and_lifestyle$Physical.Activity.Level)
+```
+
+### Categorical Variables 
+
+**BMI Category**
+```{r}
+ggplot(data = sleep_and_lifestyle) +
+ geom_bar(mapping = aes(x = BMI.Category, y = after_stat(prop),
+ group = 1), fill="steelblue") +
+   ylab("Proportion")
+```
+
+From the bar graph, it is apparent that about many individuals have a normal or overweight BMI.
+
+**Sleep Disorder**
+```{r}
+sleep_disorder_counts <- table(sleep_and_lifestyle$`Sleep.Disorder`)
+
+sleep_disorder_data <- data.frame(Sleep.Disorder = names(sleep_disorder_counts), Count = as.numeric(sleep_disorder_counts))
+
+sleep_disorder_data$Percentage <- round((sleep_disorder_data$Count / sum(sleep_disorder_data$Count)) * 100, 1)
+
+ggplot(sleep_disorder_data, aes(x = "", y = Percentage, fill = Sleep.Disorder)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Distribution of Sleep Disorders") +
+  scale_fill_discrete(name = "Sleep Disorder", labels = paste(sleep_disorder_data$Sleep.Disorder, "(", sleep_disorder_data$Percentage, "%)")) +
+  theme_void() +
+  theme(legend.position = "right") +
+  coord_polar(theta = "y")
+```
+
+**Gender**
+```{r}
+table(sleep_and_lifestyle$Gender)
+```
+
+Of the 374 participants, 185 were female while 189 were male.
+
+Graphs were not made for Person.ID, Heart Rate, and Occupation and Blood Pressure because they are not as important in explaining factors that influence sleep and lifestyle.
+
+### Relationship Between Variables
+
+**How does physical activity affect sleep duration?**
+```{r}
+ggplot(sleep_and_lifestyle, aes(x = Physical.Activity.Level, y = Sleep.Duration)) +
+  geom_point() +  
+  geom_smooth(method = "lm", se = FALSE, color = "red") + 
+  labs(title = "Relationship between Physical Activity Level and Sleep Duration", x = "Physical Activity Level", y = "Sleep Duration", cex.main="12")
+```
+
+From this code, we see a very weak relationship between physical activity level and sleep duration, because the line does not seem to be very steep, revealing a weak trend.
+
+**Summary of Physicial Activity Level for those with Sleep Duration above 7.5 hours/day**
+```{r}
+s <- sleep_and_lifestyle %>% 
+  select(Physical.Activity.Level, Sleep.Duration) %>% 
+  filter(Sleep.Duration > 7.5) %>% 
+  arrange(desc(Physical.Activity.Level))
+summary(s)
+```
+**Summary of Physicial Activity Level for those with Sleep Duration below 7.5 hours/day**
+```{r}
+p <- sleep_and_lifestyle %>% 
+  select(Physical.Activity.Level, Sleep.Duration) %>% 
+  filter(Sleep.Duration < 7.5) %>% 
+  arrange(desc(Physical.Activity.Level))
+summary(p)
+```
+
+For sleep duration greater than 7.5, the mean and median physical activity levels are much greater than for sleep duration less than 7.5. 
+
+**How does sleep duration vary among different occupations?**
+```{r}
+ggplot(sleep_and_lifestyle, aes(x = Occupation, y = `Sleep.Duration`)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Occupation vs Sleep Duration", x = "Occupation", y = "Sleep Duration (hours)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+From this visualization, it is clear that Engineers have the highest average sleep duration and Sales representatives seem to have the lowest average sleep duration.
+
+**How does having a sleep disorder affect sleep duration?**
+```{r}
+ggplot(sleep_and_lifestyle, aes(x = Sleep.Disorder, y = Sleep.Duration, fill = Sleep.Disorder)) +
+  geom_boxplot() +
+  labs(title = "Average Sleep Duration by Sleep Disorder", x = "Sleep Disorder", y = "Sleep Duration (hours)") 
+```
+
+It is clear that individuals without a sleep disorder (‘None’) have the highest average sleep duration. This is followed by individuals with ‘Sleep Apnea,’ and lastly, individuals with ‘Insomnia’ show the lowest average sleep duration among the groups. This graph reveals the differences in sleep duration related to various sleep disorders, which could have significant implications for sleep health research.
+
+**How does blood pressure predict heart rate among individuals with different sleep disorders?**
+```{r}
+ggplot(sleep_and_lifestyle, aes(x = Heart.Rate, y = Blood.Pressure, color = Sleep.Disorder)) +
+  geom_point() +
+  labs(title = "Heart Rate vs Blood Pressure by Sleep Disorder",  x = "Heart Rate", y = "Blood Pressure")
+```
+
+People with insomnia often have higher heart rates, indicating potential health impacts. We also noticed that both insomnia and sleep apnea tend to be associated with higher blood pressure. This suggests that sleep disorders might have broader health consequences. Alternatively, it could be that individuals with higher heart rates/blood pressures are more prone to acquiring these disorders. This is something that would have to be further investigated in scientific research.
+
+**How does physical activity level affect sleep duration among individuals with different BMI?**
+```{r}
+ggplot(sleep_and_lifestyle, aes(x = Physical.Activity.Level, y = Sleep.Duration)) +
+  geom_point() +
+  labs(x = "Physical Activity Level", y = "Sleep Duration") +
+  facet_wrap(.~ BMI.Category) +
+  labs(title = "Scatterplot of Physical Activity vs Sleep Duration by BMI Category")
+```
+
+The code includes a facet plot that breaks down the data into different facets based on BMI category. Faceting allows us to observe this relationship separately for each BMI category. There seems to be a linear relationship between physical activity level and sleep duration in individuals in the ‘Normal Weight’ and ‘Obese’ category. The other categories do not seem to display any relationship between physical activity level.
+
+**How does physical activity level affect quality of sleep among individuals with different stress levels?**
+```{r}
+ggplot(sleep_and_lifestyle, aes(x = Physical.Activity.Level, y = Quality.of.Sleep, color = factor(Stress.Level))) +
+  geom_point() +
+  labs(
+    title = "Physical Activity Level vs Quality of Sleep",
+    x = "Physical Activity Level (minutes/day)",
+    y = "Quality of Sleep (scale: 1-10)",
+    color = "Stress Level (scale: 1-10)")
+```
+
+The scatterplot shows that individuals with physical activity above 80 minutes/day and a quality of sleep above 8 have low stress levels. Stress levels vary with low-medium physical activity level and low-medium quality of sleep. So, definite relationships cannot be drawn.  
+
+**How does quality of sleep predict stress level?**
+```{r}
+ggplot(data = sleep_and_lifestyle, mapping = aes(x = Quality.of.Sleep, y = Stress.Level)) +
+  geom_point() + 
+  geom_smooth(method=lm) +
+  labs(title = "Relationship Between Quality of Sleep and Stress Level") +
+  xlab("Quality of Sleep (scale of 1-10)") +
+  ylab("Stress Level (scale of 1-10)")
+```
+
+Based on the scatterplot it appears that as individuals rated their quality of sleep higher on a scale from 1-10, their stress levels on a scale from 1-10 also decreased.
+
+**How does age affect sleep duration in the context of stress level?**
+```{r}
+ggplot(data = sleep_and_lifestyle) +
+  geom_point(mapping = aes(x = Age, y = Sleep.Duration, color = Stress.Level)) +
+  labs(title = "Relationship Between Age and Sleep Duration (color-coded with Stress Level) ") +
+  xlab("Age (years)") +
+  ylab("Sleep Duration (hours per day)")
+```
+
+The scatterplot of age and sleep duration, which is color-coded by stress level, shows that older individuals tend to sleep more than 8 hours per day and have low stress levels. Whereas, younger individuals that tend to sleep between 5-6.5 hours per day have relatively high stress levels.
+
+**How does stress level compare between females and males with different sleep disorders?**
+```{r}
+ggplot(sleep_and_lifestyle, aes(x = Sleep.Disorder, y = Stress.Level)) +
+  geom_boxplot() +
+  facet_wrap(~ Gender) +
+  labs(title = "Relationship Between Sleep Disorder and Stress Level (categorized by Gender)", element_text(12)) +
+  ylab("Stress Level (scale of 1-10)") +
+  xlab("Sleep Disorder")
+```
+
+The box plot of sleep disorder and stress level, which is categorized by gender, shows that females without a sleep disorder tend to have low stress levels. Whereas, males without a sleep disorder tend to have medium stress levels.
+
+**Relationship Between Gender and Quality of Sleep**
+```{r}
+ggplot(sleep_and_lifestyle, aes(x = Gender, y = Quality.of.Sleep)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Gender vs Quality of Sleep", x = "Gender", y = "Quality of Sleep") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+These boxplots show that females had a higher median quality of sleep score than males. The median for females was 8 while the median for males was 7. Both females and males had the same overall spread and IQRs in their quality of sleep scores; however, they had different values for their quartiles. 
+
+### Hypotheses for Testing
+Based on the generated graphs, several hypotheses can be formulated for testing. One hypothesis could be about the relationship between “Age” and “Sleep Duration.” It is apparent that older individuals tend to sleep for more extended periods, suggesting that age might predict sleep duration. 
+
+The second hypothesis could involve “Physical Activity Level” as an independent variable and “Sleep Duration” as the response variable. The scatterplot illustrated that individuals with higher physical activity levels tend to sleep longer hours. 
+
+The third hypothesis could explore the relationship between “Stress Level” and “Quality of Sleep.” The scatterplot indicated that individuals with higher stress levels generally report lower sleep quality, implying that “Stress Level” might be valuable in estimating or predicting “Quality of Sleep.
+
+Stress level, sleep duration, and quality of sleep appear to be the best response variables, while age, sleep disorder, and physical activity level appear are the best predictors of these response variables. 
