@@ -1,0 +1,44 @@
+Using machine learning models to analyze our data to then pull out some conclusions.
+
+1. Decision Tree
+
+data <- sleep_and_lifestyle %>%
+  select(Sleep.Disorder, Gender, Age, Sleep.Duration, Quality.of.Sleep, Physical.Activity.Level, Stress.Level, BMI.Category, Heart.Rate) %>% 
+na.omit()
+
+data <- data %>%
+  mutate_all(as.factor)
+
+form_full<- as.formula(Sleep.Disorder~ Gender + Age + Sleep.Duration + Quality.of.Sleep + Physical.Activity.Level + Stress.Level + BMI.Category + Heart.Rate)
+
+mod_tree1 <- rpart(form_full, data = train1)
+rpart.plot(mod_tree1)
+
+
+calculating confusion matrix and misclass rate 
+confusion_matrix <- train1 %>% 
+  mutate(pred3 = predict(mod_tree1, type = "class")) %>%
+  select(Sleep.Disorder, pred3) %>% table()
+confusion_matrix
+##               pred3
+## Sleep.Disorder Insomnia None Sleep Apnea
+##    Insomnia          52   11           0
+##    None               4  162           6
+##    Sleep Apnea        1   13          50
+misclass_rate = 1 - sum(diag(confusion_matrix))/sum(confusion_matrix)
+misclass_rate
+## [1] 0.1170569
+
+Analysis: 
+56% of individuals in the training set have normal or normal weight BMI and no sleep disorder. 
+Whereas, 44% of individuals that do not have a normal or normal weight BMI have sleep apnea. 
+The next node splits on whether physical activity level is greater than or less than 70 minutes/day. 
+19% of individuals that do not have normal or normal weight BMI and exercise more than 70 minutes/day have sleep apnea. 
+Of those in the training set who exercise more than 70 minutes/day and do not have a normal or normal weight BMI, 25% have insomnia. 
+Of individuals who exercise more than 70 minutes/day and do not have a normal or normal weight BMI, 19% of those younger than 43 years old have insomnia and 6% of those 43 years old or older have no sleep disorder. 
+Misclassification error rate is 0.1170569.
+
+
+2. Regularised Logistic Regression 
+
+
