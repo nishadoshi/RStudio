@@ -40,5 +40,218 @@ Misclassification error rate is 0.1170569.
 
 
 2. Regularised Logistic Regression 
+LR <- as.formula(Sleep.Disorder ~ Age + Heart.Rate + BMI.Category +  Physical.Activity.Level + Sleep.Duration + Stress.Level)
 
+predictors <- model.matrix(LR, data = sleep_and_lifestyle)
+
+fit1 <- glmnet(predictors, sleep_and_lifestyle$Sleep.Disorder, family = "multinomial", lambda = 0)
+
+fit1$beta
+## $Insomnia
+## 9 x 1 sparse Matrix of class "dgCMatrix"
+##                                    s0
+## (Intercept)                .         
+## Age                        0.01069977
+## Heart.Rate                -0.08801443
+## BMI.CategoryNormal Weight  1.09175263
+## BMI.CategoryObese          4.67123133
+## BMI.CategoryOverweight     0.34347340
+## Physical.Activity.Level   -0.03667263
+## Sleep.Duration            -1.44393041
+## Stress.Level               0.07792283
+## 
+## $None
+## 9 x 1 sparse Matrix of class "dgCMatrix"
+##                                   s0
+## (Intercept)                .        
+## Age                       -0.1169117
+## Heart.Rate                 .        
+## BMI.CategoryNormal Weight -0.7698757
+## BMI.CategoryObese         -7.8366570
+## BMI.CategoryOverweight    -2.9338839
+## Physical.Activity.Level    .        
+## Sleep.Duration             0.1138723
+## Stress.Level               .        
+## 
+## $`Sleep Apnea`
+## 9 x 1 sparse Matrix of class "dgCMatrix"
+##                                   s0
+## (Intercept)                .        
+## Age                        .        
+## Heart.Rate                 0.3620880
+## BMI.CategoryNormal Weight  .        
+## BMI.CategoryObese          .        
+## BMI.CategoryOverweight     .        
+## Physical.Activity.Level    0.0376441
+## Sleep.Duration             .        
+## Stress.Level              -0.1705112
+logistic.misclassrate <- function(dataset, y, fit, form) {
+  misclass_lr <- dataset %>%
+  mutate(pred.logistic = predict(fit, newx = model.matrix(form, data = dataset), type = "class")) %>%
+  mutate(misclassify = ifelse(y != pred.logistic, 1,0)) %>%
+  summarize(misclass.rate = mean(misclassify)) 
+  return(misclass_lr$misclass.rate)
+}
+
+Misclassification rate 
+misclassrate<-logistic.misclassrate(test1,test1$Sleep.Disorder,fit1, LR)
+
+misclassrate
+## [1] 0.08
+
+Analysis: 
+The coefficient estimates for the different variables are included as an output of this code. 
+The misclassification rate, is approximately 12%, suggesting that the model accurately predicts the sleep disorder category in about 88% of instances.
+
+Cross Validated Model Selection 
+LR <- as.formula(Sleep.Disorder ~ Age + Heart.Rate + BMI.Category + Physical.Activity.Level + Sleep.Duration + Stress.Level)
+
+predictors <- model.matrix(LR, data = train1)
+
+cv.fit <- cv.glmnet(predictors, train1$Sleep.Disorder, nfolds=10,
+family = "multinomial", type.measure = "class")
+
+plot(cv.fit)
+
+cv.fit
+## 
+## Call:  cv.glmnet(x = predictors, y = train1$Sleep.Disorder, type.measure = "class",      nfolds = 10, family = "multinomial") 
+## 
+## Measure: Misclassification Error 
+## 
+##      Lambda Index Measure      SE Nonzero
+## min 0.00245    55  0.1304 0.03036       4
+## 1se 0.13388    12  0.1405 0.02927       1
+
+
+Coefficient Estimates of the Optimal Model and Predictions 
+coef(cv.fit,s="lambda.1se")
+## $Insomnia
+## 10 x 1 sparse Matrix of class "dgCMatrix"
+##                                    1
+## (Intercept)               -0.5330357
+## (Intercept)                .        
+## Age                        .        
+## Heart.Rate                 .        
+## BMI.CategoryNormal Weight  .        
+## BMI.CategoryObese          .        
+## BMI.CategoryOverweight     .        
+## Physical.Activity.Level    .        
+## Sleep.Duration             .        
+## Stress.Level               .        
+## 
+## $None
+## 10 x 1 sparse Matrix of class "dgCMatrix"
+##                                   1
+## (Intercept)                1.429366
+## (Intercept)                .       
+## Age                        .       
+## Heart.Rate                 .       
+## BMI.CategoryNormal Weight  .       
+## BMI.CategoryObese          .       
+## BMI.CategoryOverweight    -2.117896
+## Physical.Activity.Level    .       
+## Sleep.Duration             .       
+## Stress.Level               .       
+## 
+## $`Sleep Apnea`
+## 10 x 1 sparse Matrix of class "dgCMatrix"
+##                                      1
+## (Intercept)               -0.896329981
+## (Intercept)                .          
+## Age                        .          
+## Heart.Rate                 .          
+## BMI.CategoryNormal Weight  .          
+## BMI.CategoryObese          .          
+## BMI.CategoryOverweight     .          
+## Physical.Activity.Level    0.006265912
+## Sleep.Duration             .          
+## Stress.Level               .
+predict(cv.fit, newx = predictors[1:5,], s = "lambda.1se", type = "class")
+##      1            
+## [1,] "Sleep Apnea"
+## [2,] "None"       
+## [3,] "None"       
+## [4,] "Insomnia"   
+## [5,] "Sleep Apnea"
+
+The optimal model, selected based on cross-validated model selection analysis, reveals the coefficient estimates for predicting sleep disorders. 
+The prediction for the first 5 rows is also included here.
+
+
+Misclassification Rate and Confusion Matrix 
+
+final_model <- glmnet(predictors, train1$Sleep.Disorder, family = "multinomial", lambda = 0.08447)
+logistic.misclassrate(test1, test1$Sleep.Disorder, final_model, LR)
+## [1] 0.1333333
+logistic.misclassrate <- function(dataset, y, fit, form){
+  misclass_lr <- dataset %>% 
+  mutate(pred.logistic = predict(fit, newx = model.matrix(form, data = dataset), type = "class")) %>% 
+  mutate(misclassify = ifelse(y != pred.logistic, 1,0)) %>%
+  summarize(misclass.rate = mean(misclassify))
+  return(misclass_lr$misclass.rate)
+ }
+
+predictors3 <- model.matrix(LR, data = train1) 
+fit_opt <- glmnet(predictors3, train1$Sleep.Disorder, 
+                  family = "multinomial", lambda =0.08447)
+misclassrate_lr<-logistic.misclassrate(test1,test1$Sleep.Disorder,fit_opt, LR)
+misclassrate_lr
+## [1] 0.1333333
+test_predictors <- model.matrix(LR, data = test1)
+test_predictions <- predict(final_model, newx = test_predictors, type = "class")
+
+conf_matrix <- table(Actual = test1$Sleep.Disorder, Predicted = test_predictions)
+print(conf_matrix)
+##              Predicted
+## Actual        Insomnia None Sleep Apnea
+##   Insomnia          10    3           1
+##   None               1   46           0
+##   Sleep Apnea        0    5           9
+
+In this case, the misclassification rate is about 13.33%. 
+This value can be explained because of the 1se rule, which goes for a lambda within one standard error of the minimum misclassification error, that prefers a simpler model with fewer predictors. 
+While this might slightly reduce accuracy compared to the minimum lambda, the focus is on avoiding a too-complex model that fits the training data too closely. 
+Such an overly complex model could pick up on random noise and not work well with new data. 
+By going with the 1se rule, we prioritize a more straightforward and reliable model that generalizes better.
+
+
+3. Random Forest Model 
+data1 <- sleep_and_lifestyle %>% drop_na()
+data1 <- transform(data1, 
+                   Gender=as.factor(Gender), 
+                   Age=as.factor(Age), 
+                   Sleep.Duration=as.factor(Sleep.Duration), 
+                   Quality.of.Sleep=as.factor(Quality.of.Sleep), 
+                   Physical.Activity.Level=as.factor(Physical.Activity.Level), 
+                   Stress.Level=as.factor(Stress.Level), 
+                   BMI.Category=as.factor(BMI.Category), 
+                   Heart.Rate=as.factor(Heart.Rate), 
+                   Sleep.Disorder=as.factor(Sleep.Disorder))
+
+set.seed(100)
+train1 <- data1 %>% sample_frac(size = 0.8)
+test1 <- data1 %>% setdiff(train1)
+
+form_full <- as.formula("Sleep.Disorder ~ Gender + Age + Sleep.Duration + Quality.of.Sleep + Physical.Activity.Level + Stress.Level + BMI.Category + Heart.Rate")
+
+mod_rf<- randomForest(formula=form_full, data=train1, ntree = 1000)
+mod_rf
+## 
+## Call:
+##  randomForest(formula = form_full, data = train1, ntree = 1000) 
+##                Type of random forest: classification
+##                      Number of trees: 1000
+## No. of variables tried at each split: 2
+## 
+##         OOB estimate of  error rate: 9.03%
+## Confusion matrix:
+##             Insomnia None Sleep Apnea class.error
+## Insomnia          54    7           1  0.12903226
+## None               4  163           5  0.05232558
+## Sleep Apnea        4    6          55  0.15384615
+
+Using all predictors, the out-of-bag estimate shows that the mean prediction error on each training sample is 9.03%. 
+This uses data not included in the bootstrap sample. 
+This error rate is an estimate of the prediction error rate.
 
