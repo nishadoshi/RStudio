@@ -4,6 +4,9 @@ author: "Nisha Doshi"
 date: "2024-04-02"
 output: pdf_document
 ---
+
+This project was to predict song popularity from a data set using machine learning models. This is my code in R. 
+
 ```{r}
 ## Importing train and set set and attaching it 
 train.set <- read.csv("/Users/nishadoshi/Desktop/School/spring 2024/stat 1361/final project/train.csv")
