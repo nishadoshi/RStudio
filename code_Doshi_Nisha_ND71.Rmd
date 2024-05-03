@@ -1,0 +1,278 @@
+---
+title: "code_Doshi_Nisha_ND71"
+author: "Nisha Doshi"
+date: "2024-04-02"
+output: pdf_document
+---
+```{r}
+## Importing train and set set and attaching it 
+train.set <- read.csv("/Users/nishadoshi/Desktop/School/spring 2024/stat 1361/final project/train.csv")
+test.set <- read.csv("/Users/nishadoshi/Desktop/School/spring 2024/stat 1361/final project/test.csv")
+
+attach(train.set)
+
+#Initial observations: n = 1200, p = 19 
+#0 is included in popularity 
+## Splitting the training set into its own train and test set (70/30). 
+
+set.seed(123)
+train <- sample(nrow(train.set)*0.7) 
+trainSet <- train.set[train, ] 
+testSet <- train.set[-train, ]
+
+
+##Removing columns: id, album name, track name, because they are irrelevant and character variables, which will not work with the models being tested. 
+
+trainSet1 <- trainSet[, -(1:3)]
+testSet1 <- testSet[,-(1:3)]
+
+
+sum(train.set$popularity == 0)
+##About half of the songs included in this data have 0 popularity
+
+summary(train.set)
+##Looking at the summary, some interesting findings: looking at the popularity, the mean is only 27.38 so most the data is the set itself does not have a average high popularity rating. The other averages do not seem unusual. A majority of the songs in the data are not explicit. 
+```
+
+```{r}
+
+library(ggplot2)
+library(dplyr)
+##I want to make a chart splitting the genres up and see how popularity is split between the genres, because I believe pop would indicate more popularity, majority of the time. 
+
+trackgenrePOP <- trainSet %>%
+  group_by(track_genre) %>% 
+  summarise(avgpop = mean(popularity))
+
+ggplot(trackgenrePOP, aes(track_genre, avgpop)) + geom_bar(stat = "identity", color = "orange", fill= "lightblue") +
+  labs(title = "Average Popularity Grouped by Genre",
+       x = "Genre",
+       y = "Average Popularity")
+
+## The bar chart shows that the genre being pop has almost double of jazz and rocks average popularity.  
+
+```
+```{r}
+# Here I am going to look at the correlation between the numeric variables and popularity to see if there are any patterns 
+train.numeric_data <- trainSet[, sapply(trainSet, is.numeric)]
+
+# Full correlation plot does not give insight
+pairs(train.numeric_data)
+
+# Distribution of popularity:  Alot of 0, and 40 + popularity
+plot(trainSet$popularity)
+
+
+# Plotting the calculated correlation between popularity and each predcitor 
+library(ggplot2)
+
+# Calculate correlations between each predictor variable and the response variable
+correlation_data <- data.frame(variable = names(train.numeric_data), 
+                               correlation = sapply(train.numeric_data, function(x) cor(x, train.numeric_data$popularity)))
+
+# Plot the correlations
+ggplot(correlation_data, aes(x = variable, y = correlation)) +
+  geom_bar(stat = "identity", fill = "skyblue", width = 0.5) +
+  geom_hline(yintercept = 0, color = "black", linetype = "dashed") +
+  labs(title = "Correlation with Popularity",
+       x = "Predictor",
+       y = "Correlation")
+
+# Printing the actual value of correlation of the top 2 variables which was danceability and mode
+
+correlation_dancebility <- correlation_data$correlation[correlation_data$variable == "danceability"]
+correlation_mode <- correlation_data$correlation[correlation_data$variable == "mode"]
+
+print(correlation_dancebility)
+print(correlation_mode)
+
+```
+
+```{r}
+## Testing linear regression to see which predictors seem to be important 
+
+lm.train <- lm(popularity ~ . ,data = trainSet1 )
+lm.pred <- predict(lm.train, testSet1)
+
+
+lm.mse <- mean((testSet1$popularity - lm.pred)^2)
+lm.mse
+
+summary(lm.train)
+
+
+par(mfrow = c(3,2))
+plot(lm.train)
+
+##Using a basic linear model, without album name and track name, there are some results, but with a low R^2 so it is difficult to explain the variance. Least to most important: duration_ms, mode, danceability, energy, valence, tempo, track_genre pop. I am not going to continue with linear model for predictions. 
+
+```
+
+```{r}
+# Converting track_genre and genre into factor variables to easily work with models
+trainSet1$explicit <- factor(trainSet1$explicit,
+                             levels = c("FALSE", "TRUE"),
+                             labels = c("false", "true"))
+
+
+trainSet1$track_genre <- factor(trainSet1$track_genre,
+                                levels = c("jazz","rock","pop"),
+                                labels = c("jazz","rock","pop"))
+
+testSet1$explicit <- factor(testSet1$explicit,
+                             levels = c("FALSE", "TRUE"),
+                             labels = c("false", "true"))
+
+
+testSet1$track_genre <- factor(testSet1$track_genre,
+                                levels = c("jazz","rock","pop"),
+                                labels = c("jazz","rock","pop"))
+
+
+```
+
+```{r}
+# Decision trees
+library(tree)
+
+train.tree <- tree(popularity ~. , data = trainSet1)
+
+# Plotting model
+plot(train.tree)
+text(train.tree, pretty = 0)
+
+# Calculating MSE 
+tree.pred <- predict(train.tree, testSet1)
+tree.mse <- mean((testSet1$popularity - tree.pred)^2)
+tree.mse
+
+# Using cross validation to find the optimum number of splits
+cv.train <- cv.tree(train.tree)
+
+# Plot results 
+plot(cv.train$size, cv.train$dev, type = "b")
+
+# Pruning the tree to 7 splits and seeing if MSE goes down. 
+prune.train.tree <- prune.tree(train.tree, best = 7)
+plot(prune.train.tree)
+text(prune.train.tree, pretty = 0)
+
+pred.train.tree.prune <- predict(prune.train.tree, testSet1)
+prune.tree.mse <- mean((testSet1$popularity - pred.train.tree.prune)^2)
+
+prune.tree.mse
+# MSE did not decrease after pruning the tree. 
+```
+
+```{r}
+# Bagging Model  
+library(randomForest)
+
+set.seed(1)
+bag.trainSet <- randomForest(popularity ~ ., data = trainSet1, mtry = 15, importance = TRUE)
+bag.trainSet
+
+# Calculating bagged MSE 
+bag.pred <- predict(bag.trainSet, testSet1)
+bag.mse <- mean((testSet1$popularity - bag.pred)^2)
+bag.mse
+
+# Plotting the variable importance
+importance(bag.trainSet)
+varImpPlot(bag.trainSet)
+
+##The MSE decreased a lot with bagging
+
+
+#Random Forest (mtry = p/3 = 6)
+
+set.seed(1)
+rf.trainSet <- randomForest(popularity ~ ., data = trainSet1, mtry = 16/3, importance = TRUE)
+rf.pred <- predict(rf.trainSet, testSet1)
+rf.mse <- mean((testSet1$popularity - rf.pred)^2)
+rf.mse
+
+##MSE decreased slightly 
+varImpPlot(rf.trainSet) 
+
+
+```
+
+```{r}
+#BART fit 
+##train.set2 is a copy of the original training set, as I want to keep the first one as the original. But working with the copy, I recreated another train sample and made explicit and track_genre factor variables, then performed BART model.
+
+library(BART)
+train.set2 <- train.set
+set.seed(123)
+
+train2 <- sample(nrow(train.set2)*0.7) 
+
+train.set2$explicit <- factor(train.set2$explicit,
+                             levels = c("FALSE", "TRUE"),
+                             labels = c("false", "true"))
+
+
+train.set2$track_genre <- factor(train.set2$track_genre,
+                                levels = c("jazz","rock","pop"),
+                                labels = c("jazz","rock","pop"))
+
+
+
+x <- train.set2[,4:19]
+y <- train.set2[,"popularity"]
+
+xtrain <-x[train2,]
+ytrain <- y[train2]
+
+xtest <- x[-train2,] 
+ytest <- y[-train2]
+
+set.seed(1)
+bartfit <- gbart( xtrain, ytrain, x.test = xtest)
+yhat.bart <- bartfit$yhat.test.mean 
+
+bartfit.mse <- mean((ytest - yhat.bart)^2)
+bartfit.mse
+
+##bart fit produced the lowest mse among all other tests 
+
+```
+
+
+```{r}
+# Converting explicit and track_genre from the test set to factor variables 
+
+test.set$explicit <- factor(test.set$explicit,
+                             levels = c("FALSE", "TRUE"),
+                             labels = c("false", "true"))
+
+
+test.set$track_genre <- factor(test.set$track_genre,
+                                levels = c("jazz","rock","pop"),
+                                labels = c("jazz","rock","pop"))
+
+# Creating a filler column for popularity in the test set 
+# Rearranging the order so that popularity is in the same column as the train set
+
+test.set$popularity <- NA 
+test.set2 <- test.set[,c(1,2,3,19,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18)]
+
+# Final model with bagging 
+
+bag.pred.final <- predict(bag.trainSet, newdata = test.set2)
+
+# Add predicted values as a new column to the test set
+test.set2$popularity <- bag.pred.final
+
+
+# Rounding the predicted values 
+test.set2$popularity <- round(test.set2$popularity)
+
+# Creating a data set with only coloumns id and popularity, then converting it to a csv set. 
+final.test.set.bag <- test.set2[c("id","popularity")]
+
+write.csv(final.test.set.bag, "testing_predictions_Doshi_Nisha_NID71.csv")
+
+```
+
